@@ -4,7 +4,7 @@ import io
 
 app = Flask(__name__)
 
-@app.route('/api/qr', methods=['GET', 'OPTIONS'])
+@app.route('/', methods=['GET', 'OPTIONS'])
 def generate_qr():
     if request.method == 'OPTIONS':
         # Handle preflight request
@@ -61,5 +61,6 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
-# Vercel requires a Flask app instance named "app"
-# This file will be treated as a serverless function
+# This makes this file work as a Vercel serverless function
+if __name__ == '__main__':
+    app.run(debug=True)
