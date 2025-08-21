@@ -4,23 +4,24 @@
     {
       "src": "app.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "api/qr.py",
+      "use": "@vercel/python"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/",
-      "methods": ["GET"],
-      "dest": "app.py"
+      "source": "/",
+      "destination": "/app.py"
     },
     {
-      "src": "/api/qr",
-      "methods": ["GET"],
-      "dest": "app.py"
+      "source": "/health",
+      "destination": "/app.py"
     },
     {
-      "src": "/health",
-      "methods": ["GET"],
-      "dest": "app.py"
+      "source": "/api/qr",
+      "destination": "/api/qr.py"
     }
   ],
   "headers": [
