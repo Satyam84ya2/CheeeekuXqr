@@ -4,12 +4,8 @@ import io
 
 app = Flask(__name__)
 
-@app.route('/', methods=['GET', 'OPTIONS'])
+@app.route('/', methods=['GET'])
 def generate_qr():
-    if request.method == 'OPTIONS':
-        # Handle preflight request
-        return '', 200
-    
     try:
         # Get parameters from query string
         amount = request.args.get('amount', '')
