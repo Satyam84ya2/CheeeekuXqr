@@ -4,9 +4,17 @@ from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer, SquareModuleDrawer, CircleModuleDrawer, GappedSquareModuleDrawer
 from qrcode.image.styles.colormasks import SolidFillColorMask, RadialGradiantColorMask, SquareGradiantColorMask, HorizontalGradiantColorMask, VerticalGradiantColorMask
 import io
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
+import math
 
 app = Flask(__name__)
+
+def hex_to_rgb(hex_color):
+    """Convert hex color to RGB tuple"""
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) == 3:
+        hex_color = ''.join([c*2 for c in hex_color])
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 @app.route('/')
 def home():
@@ -54,6 +62,10 @@ def generate_qr():
         if amount and (not amount.replace('.', '').isdigit() or float(amount) < 0):
             return jsonify({"error": "Invalid amount provided"}), 400
         
+        # Convert hex colors to RGB
+        front_color = hex_to_rgb(color1)
+        back_color = hex_to_rgb(color2)
+        
         # UPI ID
         upi_id = "satyam84ya@fam"
         
@@ -65,7 +77,7 @@ def generate_qr():
         # Generate QR code
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,  # Higher error correction for styled QR codes
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
             box_size=15,
             border=2,
         )
@@ -78,8 +90,8 @@ def generate_qr():
                 image_factory=StyledPilImage,
                 module_drawer=RoundedModuleDrawer(),
                 color_mask=SolidFillColorMask(
-                    front_color=f"#{color1}", 
-                    back_color=f"#{color2}"
+                    front_color=front_color, 
+                    back_color=back_color
                 )
             )
         elif style == 'circles':
@@ -87,8 +99,8 @@ def generate_qr():
                 image_factory=StyledPilImage,
                 module_drawer=CircleModuleDrawer(),
                 color_mask=SolidFillColorMask(
-                    front_color=f"#{color1}", 
-                    back_color=f"#{color2}"
+                    front_color=front_color, 
+                    back_color=back_color
                 )
             )
         elif style == 'gradient':
@@ -96,9 +108,8 @@ def generate_qr():
                 image_factory=StyledPilImage,
                 module_drawer=SquareModuleDrawer(),
                 color_mask=HorizontalGradiantColorMask(
-                    back_color=f"#{color2}",
-                    top_color=f"#{color1}",
-                    bottom_color=f"#{color2}"
+                    back_color=back_color,
+                    center_color=front_color
                 )
             )
         elif style == 'gradient_vertical':
@@ -106,9 +117,8 @@ def generate_qr():
                 image_factory=StyledPilImage,
                 module_drawer=SquareModuleDrawer(),
                 color_mask=VerticalGradiantColorMask(
-                    back_color=f"#{color2}",
-                    left_color=f"#{color1}",
-                    right_color=f"#{color2}"
+                    back_color=back_color,
+                    center_color=front_color
                 )
             )
         elif style == 'gradient_radial':
@@ -116,19 +126,18 @@ def generate_qr():
                 image_factory=StyledPilImage,
                 module_drawer=SquareModuleDrawer(),
                 color_mask=RadialGradiantColorMask(
-                    back_color=f"#{color2}",
-                    center_color=f"#{color1}",
-                    edge_color=f"#{color2}"
+                    back_color=back_color,
+                    center_color=front_color
                 )
             )
         else:  # basic style
             img = qr.make_image(
-                fill_color=f"#{color1}", 
-                back_color=f"#{color2}"
+                fill_color=front_color, 
+                back_color=back_color
             )
         
         # Add a decorative border around the QR code
-        img = add_decorative_border(img, style)
+        img = add_decorative_border(img, style, front_color, back_color)
         
         # Save image to bytes buffer
         img_buffer = io.BytesIO()
@@ -143,44 +152,40 @@ def generate_qr():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def add_decorative_border(qr_img, style):
+def add_decorative_border(qr_img, style, front_color, back_color):
     # Create a larger canvas with a decorative border
     border_size = 40
     width, height = qr_img.size
     new_width = width + border_size * 2
     new_height = height + border_size * 2
     
-    # Create a new image with a background
-    if style == 'gradient' or style == 'gradient_vertical' or style == 'gradient_radial':
-        # Create gradient background
-        base_img = Image.new('RGB', (new_width, new_height), color="#f8f9fa")
-        draw = ImageDraw.Draw(base_img)
-        
-        # Draw a gradient border
+    # Create a new image with background color
+    base_img = Image.new('RGB', (new_width, new_height), color=back_color)
+    draw = ImageDraw.Draw(base_img)
+    
+    # Draw different border styles based on QR style
+    if style in ['gradient', 'gradient_vertical', 'gradient_radial']:
+        # Gradient border
         for i in range(border_size):
-            if style == 'gradient':
-                r = int(80 + (175 * i / border_size))
-                g = int(100 + (155 * i / border_size))
-                b = int(200 - (100 * i / border_size))
-            elif style == 'gradient_vertical':
-                r = int(255 - (175 * i / border_size))
-                g = int(200 - (100 * i / border_size))
-                b = int(100 + (155 * i / border_size))
-            else:  # radial
-                r = int(100 + (155 * i / border_size))
-                g = int(200 - (100 * i / border_size))
-                b = int(255 - (175 * i / border_size))
-                
+            # Calculate gradient color
+            ratio = i / border_size
+            r = int(front_color[0] * (1 - ratio) + back_color[0] * ratio)
+            g = int(front_color[1] * (1 - ratio) + back_color[1] * ratio)
+            b = int(front_color[2] * (1 - ratio) + back_color[2] * ratio)
+            
             draw.rectangle([i, i, new_width - i, new_height - i], outline=(r, g, b), width=1)
-    else:
-        # Solid color background
-        base_img = Image.new('RGB', (new_width, new_height), color="#f0f8ff")
-        draw = ImageDraw.Draw(base_img)
-        
-        # Draw a decorative border
-        for i in range(0, border_size, 4):
-            color = (70, 130, 180) if i % 8 == 0 else (135, 206, 250)
+    
+    elif style in ['rounded', 'circles']:
+        # Decorative pattern border
+        for i in range(0, border_size, 3):
+            color = front_color if i % 6 == 0 else back_color
             draw.rectangle([i, i, new_width - i, new_height - i], outline=color, width=2)
+    
+    else:  # basic style
+        # Simple solid border
+        draw.rectangle([0, 0, new_width - 1, new_height - 1], outline=front_color, width=5)
+        draw.rectangle([5, 5, new_width - 6, new_height - 6], outline=back_color, width=3)
+        draw.rectangle([8, 8, new_width - 9, new_height - 9], outline=front_color, width=1)
     
     # Paste the QR code in the center
     qr_position = ((new_width - width) // 2, (new_height - height) // 2)
