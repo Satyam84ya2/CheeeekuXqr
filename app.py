@@ -40,7 +40,7 @@ def home():
             "api": "/api/qr",
             "health_check": "/health"
         },
-        "upi_id": "satyam84ya@fam"
+        "upi_id": "uk04harsh01@fam"
     })
 
 @app.route('/health')
